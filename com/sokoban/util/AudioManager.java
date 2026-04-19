@@ -1,94 +1,79 @@
 package com.sokoban.util;
 
 import javax.sound.sampled.*;
+import java.io.File;
 import java.io.IOException;
-import java.net.URL;
 
-/**
- * 音频管理类：负责播放移动音效、胜利音效和背景音乐
- */
 public class AudioManager {
-    private static Clip bgmClip;
-    private static boolean bgmPlaying = false;
+    private static AudioManager instance;
+    private Clip bgmClip, effectClip;
+    private boolean muted = false;
 
-    /**
-     * 播放移动音效（短促）
-     */
-    public static void playMoveSound() {
-        playSound("move.wav");
+    // ⚠️ 请修改为你的真实绝对路径（最后不要忘记斜杠）
+    private static final String AUDIO_BASE_PATH = "D:/Java program/Box pushing/Box pushing/res/audio/";
+
+    private AudioManager() {}
+
+    public static AudioManager getInstance() {
+        if (instance == null) instance = new AudioManager();
+        return instance;
     }
 
-    /**
-     * 播放胜利音效（短促）
-     */
-    public static void playWinSound() {
-        playSound("win.wav");
-    }
+    public boolean isMuted() { return muted; }
 
-    /**
-     * 启动背景音乐（循环播放）
-     */
-    public static void playBackgroundMusic() {
-        if (bgmPlaying) return;
-        bgmClip = playSoundLoop("bgm.wav");
-        if (bgmClip != null) {
-            bgmPlaying = true;
+    public void toggleMute() {
+        muted = !muted;
+        if (muted) {
+            stopBGM();
+        } else {
+            playBGM("bgm.wav");
         }
     }
 
-    /**
-     * 停止背景音乐（窗口关闭时调用）
-     */
-    public static void stopBackgroundMusic() {
+    public void playBGM(String fileName) {
+        if (muted) return;
+        stopBGM();
+        try {
+            File file = new File(AUDIO_BASE_PATH + fileName);
+            System.out.println("尝试播放背景音乐: " + file.getAbsolutePath());
+            if (!file.exists()) {
+                System.err.println("背景音乐文件不存在: " + file.getAbsolutePath());
+                return;
+            }
+            AudioInputStream ais = AudioSystem.getAudioInputStream(file);
+            bgmClip = AudioSystem.getClip();
+            bgmClip.open(ais);
+            bgmClip.loop(Clip.LOOP_CONTINUOUSLY);
+            bgmClip.start();
+            System.out.println("背景音乐播放成功");
+        } catch (Exception e) {
+            System.err.println("背景音乐播放失败: " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+
+    public void stopBGM() {
         if (bgmClip != null && bgmClip.isRunning()) {
             bgmClip.stop();
             bgmClip.close();
-            bgmPlaying = false;
         }
     }
 
-    /**
-     * 播放一次短音效（非循环）
-     */
-    private static void playSound(String fileName) {
+    public void playEffect(String fileName) {
+        if (muted) return;
         try {
-            URL url = getAudioUrl(fileName);
-            if (url == null) return;
-            AudioInputStream audioIn = AudioSystem.getAudioInputStream(url);
-            Clip clip = AudioSystem.getClip();
-            clip.open(audioIn);
-            clip.start();  // 异步播放，不阻塞
-        } catch (UnsupportedAudioFileException | IOException | LineUnavailableException e) {
-            // 忽略异常，保证游戏正常运行
-        }
-    }
-
-    /**
-     * 播放循环音效（用于背景音乐）
-     */
-    private static Clip playSoundLoop(String fileName) {
-        try {
-            URL url = getAudioUrl(fileName);
-            if (url == null) return null;
-            AudioInputStream audioIn = AudioSystem.getAudioInputStream(url);
-            Clip clip = AudioSystem.getClip();
-            clip.open(audioIn);
-            clip.loop(Clip.LOOP_CONTINUOUSLY);
-            clip.start();
-            return clip;
+            File file = new File(AUDIO_BASE_PATH + fileName);
+            if (!file.exists()) {
+                System.err.println("音效文件不存在: " + file.getAbsolutePath());
+                return;
+            }
+            AudioInputStream ais = AudioSystem.getAudioInputStream(file);
+            effectClip = AudioSystem.getClip();
+            effectClip.open(ais);
+            effectClip.start();
+            System.out.println("播放音效: " + fileName);
         } catch (Exception e) {
-            return null;
+            System.err.println("音效播放失败: " + e.getMessage());
         }
-    }
-
-    /**
-     * 统一资源查找：优先从 /res/audio/ 找，再尝试 /audio/
-     */
-    private static URL getAudioUrl(String fileName) {
-        URL url = AudioManager.class.getResource("/res/audio/" + fileName);
-        if (url == null) {
-            url = AudioManager.class.getResource("/audio/" + fileName);
-        }
-        return url;
     }
 }
